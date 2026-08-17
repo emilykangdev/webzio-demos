@@ -163,7 +163,8 @@ const server = http.createServer(async (req, res) => {
   fs.createReadStream(file).pipe(res);
 });
 
-server.listen(PORT, "127.0.0.1", () => {
+// No host binding: Vercel's Node runtime captures the server via listen()
+server.listen(PORT, () => {
   console.log(`Renewable-energy market tracker → http://localhost:${PORT}`);
   console.log(`Segments: ${Object.keys(SEGMENTS).join(", ")} · cache TTL ${CACHE_TTL_MS / 60000} min`);
 });
