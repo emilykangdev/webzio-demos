@@ -8,12 +8,17 @@ Segments, each mapped to its own Webz.io boolean query:
 
 | Segment | Query |
 |---|---|
-| All renewables | `"renewable energy" OR "clean energy"` |
-| Solar | `"solar energy" OR "solar power" OR photovoltaic` |
-| Wind | `"wind energy" OR "wind power" OR "offshore wind"` |
-| Storage | `"energy storage" OR "battery storage" OR "grid-scale battery"` |
-| Hydrogen | `"green hydrogen" OR "hydrogen energy"` |
-| Policy | `"renewable energy" AND (policy OR regulation OR subsidy OR "tax credit")` |
+| All renewables | `thread.title:("renewable energy" OR "clean energy" OR renewables)` |
+| Solar | `thread.title:("solar power" OR "solar energy" OR photovoltaic OR "solar farm")` |
+| Wind | `thread.title:("wind power" OR "wind energy" OR "wind farm" OR "offshore wind")` |
+| Storage | `thread.title:("energy storage" OR "battery storage" OR "grid-scale battery")` |
+| Hydrogen | `thread.title:("green hydrogen" OR "hydrogen energy" OR "hydrogen plant")` |
+| Policy | `thread.title:("energy policy" OR "energy transition" OR "climate policy")` |
+
+Queries are **anchored to the headline** (`thread.title:`) rather than full text — a bare
+phrase match returns any article that mentions it once, which is mostly noise — and every
+query adds `language:english site_type:news domain_rank:<100000` so results come from
+established English-language news outlets.
 
 For each segment the dashboard shows **coverage volume** (`total_results` — articles
 indexed in the last 30 days, a useful attention-signal per segment), the latest

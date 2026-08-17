@@ -34,13 +34,15 @@ const CACHE_TTL_MS = 10 * 60 * 1000; // 10 min per segment
 const PAGE_SIZE = 10;
 
 // --- market segments: one Webz.io boolean query each ------------------------
+// Queries are anchored to the headline (thread.title) — a bare full-text match
+// returns any article that mentions the phrase once, which is mostly noise.
 const SEGMENTS = {
-  all:      { label: "All renewables",   q: '"renewable energy" OR "clean energy"' },
-  solar:    { label: "Solar",            q: '"solar energy" OR "solar power" OR photovoltaic' },
-  wind:     { label: "Wind",             q: '"wind energy" OR "wind power" OR "offshore wind"' },
-  storage:  { label: "Storage",          q: '"energy storage" OR "battery storage" OR "grid-scale battery"' },
-  hydrogen: { label: "Hydrogen",         q: '"green hydrogen" OR "hydrogen energy"' },
-  policy:   { label: "Policy",           q: '"renewable energy" AND (policy OR regulation OR subsidy OR "tax credit")' },
+  all:      { label: "All renewables",   q: 'thread.title:("renewable energy" OR "clean energy" OR renewables)' },
+  solar:    { label: "Solar",            q: 'thread.title:("solar power" OR "solar energy" OR photovoltaic OR "solar farm")' },
+  wind:     { label: "Wind",             q: 'thread.title:("wind power" OR "wind energy" OR "wind farm" OR "offshore wind")' },
+  storage:  { label: "Storage",          q: 'thread.title:("energy storage" OR "battery storage" OR "grid-scale battery")' },
+  hydrogen: { label: "Hydrogen",         q: 'thread.title:("green hydrogen" OR "hydrogen energy" OR "hydrogen plant")' },
+  policy:   { label: "Policy",           q: 'thread.title:("energy policy" OR "energy transition" OR "climate policy")' },
 };
 
 const cache = new Map(); // segment -> { at, payload }
@@ -49,7 +51,8 @@ const cache = new Map(); // segment -> { at, payload }
 function fetchWebz(query) {
   const params = new URLSearchParams({
     token: TOKEN,
-    q: `(${query}) language:english site_type:news`,
+    // domain_rank cap keeps established outlets; filters AND with the title group
+    q: `${query} language:english site_type:news domain_rank:<100000`,
     sort: "crawled",
     format: "json",
     size: String(PAGE_SIZE),
@@ -86,12 +89,25 @@ function aggregate(segmentKey, data) {
   const countries = {};
   const sites = {};
 
-  const articles = posts.map((post) => {
+  // Cross-site syndication slips past includeSyndicated=false — drop repeats
+  // of the same headline.
+  const seenTitles = new Set();
+  const deduped = posts.filter((post) => {
+    const key = (post.title || (post.thread || {}).title || "").trim().toLowerCase();
+    if (key && seenTitles.has(key)) return false;
+    seenTitles.add(key);
+    return true;
+  });
+
+  const articles = deduped.map((post) => {
     const thread = post.thread || {};
     if (thread.country) countries[thread.country] = (countries[thread.country] || 0) + 1;
     if (thread.site) sites[thread.site] = (sites[thread.site] || 0) + 1;
+    // Some sources stuff the whole article into the title field — clamp it.
+    let title = (post.title || thread.title || "(untitled)").trim();
+    if (title.length > 140) title = title.slice(0, 140).replace(/\s+\S*$/, "") + "…";
     return {
-      title: post.title || thread.title || "(untitled)",
+      title,
       url: post.url,
       site: thread.site || "unknown",
       country: thread.country || null,

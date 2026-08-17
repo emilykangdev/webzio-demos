@@ -24,12 +24,18 @@ One call per company query:
 
 ```
 GET https://api.webz.io/api/news
-    ?q="Tesla" language:english site_type:news
+    ?q=(thread.title:"Tesla" OR organization:"Tesla") language:english site_type:news domain_rank:<50000
     &sort=crawled&size=10&format=json
     &webz_reporter=true&includeSyndicated=false&allowNewsHistory=false
 ```
 
 Design choices worth noting:
+
+- **Relevance engineering.** A naive full-text `"Tesla"` query matches any article
+  that mentions the word once — news-roundup pages and unrelated local stories.
+  Instead the query requires the company in the **headline** (`thread.title:`) OR as a
+  Webz.io-recognized **organization entity** (`organization:`), and caps
+  `domain_rank:<50000` so results come from established outlets.
 
 - **Token stays server-side.** The browser only ever talks to the Flask endpoint
   (`/api/company?name=…`); the Webz.io token never ships to the client.

@@ -47,9 +47,15 @@ _cache: dict[str, tuple[float, dict]] = {}
 
 def fetch_company_news(company: str) -> dict:
     """One Webz.io call for a company, reduced to what the dashboard renders."""
-    # Quoted phrase = exact company match; restrict to news sites in English so
-    # the sentiment/source metrics are comparable across companies.
-    query = f'"{company}" language:english site_type:news'
+    # Relevance engineering (a bare full-text '"Tesla"' matches any article that
+    # mentions the word once, mostly junk): require the company in the headline
+    # OR as a Webz.io-recognized organization entity, and cap domain_rank to
+    # keep established outlets. Quotes are stripped from input above so the
+    # name can't break out of the fielded query.
+    query = (
+        f'(thread.title:"{company}" OR organization:"{company}") '
+        f"language:english site_type:news domain_rank:<50000"
+    )
 
     cached = _cache.get(query)
     if cached and time.time() - cached[0] < CACHE_TTL_SECONDS:
@@ -86,9 +92,17 @@ def _aggregate(company: str, data: dict) -> dict:
     sources: Counter = Counter()
     countries: Counter = Counter()
     articles = []
+    seen_titles: set[str] = set()
 
     for post in posts:
         thread = post.get("thread") or {}
+
+        # Cross-site syndication slips past includeSyndicated=false — drop
+        # repeats of the same headline.
+        title_key = (post.get("title") or thread.get("title") or "").strip().lower()
+        if title_key and title_key in seen_titles:
+            continue
+        seen_titles.add(title_key)
 
         # Prefer company-level sentiment: Webz.io tags each organization entity
         # with its own sentiment. Fall back to the post-level sentiment.
@@ -111,9 +125,13 @@ def _aggregate(company: str, data: dict) -> dict:
             countries[thread["country"]] += 1
 
         text = (post.get("text") or "").strip()
+        # Some sources stuff the whole article into the title field — clamp it.
+        title = (post.get("title") or thread.get("title") or "(untitled)").strip()
+        if len(title) > 140:
+            title = title[:140].rsplit(" ", 1)[0] + "…"
         articles.append(
             {
-                "title": post.get("title") or thread.get("title") or "(untitled)",
+                "title": title,
                 "url": post.get("url"),
                 "site": site,
                 "country": thread.get("country"),
@@ -145,7 +163,7 @@ def index():
 
 @app.route("/api/company")
 def api_company():
-    company = (request.args.get("name") or "").strip()
+    company = (request.args.get("name") or "").replace('"', "").strip()
     if not company or len(company) > 80:
         return jsonify({"error": "Pass a company name, e.g. /api/company?name=Tesla"}), 400
     try:
