@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coverage Desk — company news monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Libre+Franklin:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f6f1e7;
+    --paper-deep: #ede5d3;
+    --ink: #191512;
+    --ink-soft: #5c544a;
+    --rule: #c9bda6;
+    --red: #a52a1d;
+    --green: #2e6b3f;
+    --amber: #9a6a12;
+    --serif: "Fraunces", Georgia, serif;
+    --sans: "Libre Franklin", "Helvetica Neue", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--paper);
+    background-image: radial-gradient(rgba(25,21,18,.035) 1px, transparent 1px);
+    background-size: 4px 4px;
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 24px 80px; }
+
+  /* Masthead */
+  header { border-bottom: 3px double var(--ink); padding-bottom: 18px; margin-bottom: 6px; }
+  .kicker {
+    font-family: var(--sans); font-size: 11px; font-weight: 700;
+    letter-spacing: .22em; text-transform: uppercase; color: var(--red);
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 900; font-size: clamp(34px, 6vw, 56px);
+    letter-spacing: -.01em; line-height: 1.02; margin-top: 6px;
+  }
+  h1 em { font-style: italic; font-weight: 400; }
+  .dateline { margin-top: 10px; font-size: 12px; color: var(--ink-soft); letter-spacing: .08em; text-transform: uppercase; }
+
+  /* Search row */
+  .search-row {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    border-bottom: 1px solid var(--rule); padding: 16px 0;
+  }
+  .search-row form { display: flex; gap: 0; flex: 1; min-width: 260px; }
+  input[type=text] {
+    flex: 1; font-family: var(--serif); font-size: 18px; padding: 10px 14px;
+    border: 1.5px solid var(--ink); border-right: none; background: #fffdf7; color: var(--ink);
+    border-radius: 0; outline: none;
+  }
+  input[type=text]:focus { background: #fff; }
+  button.go {
+    font-family: var(--sans); font-weight: 700; font-size: 13px; letter-spacing: .14em;
+    text-transform: uppercase; padding: 10px 22px; border: 1.5px solid var(--ink);
+    background: var(--ink); color: var(--paper); cursor: pointer;
+  }
+  button.go:hover { background: var(--red); border-color: var(--red); }
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; }
+  .presets button {
+    font-family: var(--sans); font-size: 12px; font-weight: 500; padding: 6px 12px;
+    background: transparent; border: 1px solid var(--rule); border-radius: 999px;
+    color: var(--ink-soft); cursor: pointer;
+  }
+  .presets button:hover { border-color: var(--ink); color: var(--ink); }
+
+  /* Status line */
+  .statusline { padding: 10px 0; font-size: 12px; color: var(--ink-soft); letter-spacing: .04em; min-height: 38px; }
+  .statusline .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-right: 6px; vertical-align: 1px; }
+
+  /* KPI row */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+  .kpi { padding: 14px 16px 12px; border-right: 1px solid var(--rule); }
+  .kpi:last-child { border-right: none; }
+  .kpi .label { font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft); }
+  .kpi .value { font-family: var(--serif); font-weight: 600; font-size: 30px; margin-top: 2px; }
+  .kpi .sub { font-size: 11px; color: var(--ink-soft); }
+
+  /* Main grid */
+  .grid { display: grid; grid-template-columns: 1fr 300px; gap: 0 32px; margin-top: 26px; }
+  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(2, 1fr); } .kpi:nth-child(2) { border-right: none; } }
+
+  .section-head {
+    font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: .2em;
+    text-transform: uppercase; border-bottom: 2px solid var(--ink); padding-bottom: 6px; margin-bottom: 14px;
+  }
+
+  /* Articles */
+  article { display: grid; grid-template-columns: 1fr auto; gap: 4px 18px; padding: 16px 0; border-bottom: 1px solid var(--rule); }
+  article .meta { grid-column: 1 / -1; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  article .meta b { color: var(--red); font-weight: 700; }
+  article h3 { font-family: var(--serif); font-weight: 600; font-size: 21px; line-height: 1.2; }
+  article h3 a { color: inherit; text-decoration: none; }
+  article h3 a:hover { text-decoration: underline; text-decoration-color: var(--red); text-underline-offset: 3px; }
+  article p { margin-top: 6px; font-size: 13.5px; color: var(--ink-soft); }
+  article img { width: 108px; height: 76px; object-fit: cover; filter: sepia(.25) contrast(1.05); border: 1px solid var(--rule); }
+  .tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .12em; padding: 1px 7px; border-radius: 2px; margin-left: 8px; }
+  .tag.positive { background: #dcead9; color: var(--green); }
+  .tag.negative { background: #f0d9d4; color: var(--red); }
+  .tag.neutral  { background: var(--paper-deep); color: var(--ink-soft); }
+
+  /* Rail */
+  .rail .block { margin-bottom: 30px; }
+  .senti-bar { display: flex; height: 14px; border: 1px solid var(--ink); overflow: hidden; }
+  .senti-bar span { display: block; height: 100%; }
+  .senti-bar .pos { background: var(--green); }
+  .senti-bar .neg { background: var(--red); }
+  .senti-bar .neu { background: var(--amber); }
+  .senti-bar .unr { background: var(--paper-deep); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 11.5px; color: var(--ink-soft); }
+  .legend i { display: inline-block; width: 9px; height: 9px; margin-right: 5px; }
+  .rank { list-style: none; counter-reset: rank; }
+  .rank li { counter-increment: rank; display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px dotted var(--rule); font-size: 13px; }
+  .rank li::before { content: counter(rank, decimal-leading-zero); font-family: var(--serif); font-style: italic; color: var(--red); margin-right: 10px; }
+  .rank li .n { flex: 1; }
+  .rank li .c { font-weight: 700; }
+
+  .empty { padding: 60px 0; text-align: center; font-family: var(--serif); font-style: italic; font-size: 20px; color: var(--ink-soft); }
+  .error { color: var(--red); font-weight: 700; }
+  footer { margin-top: 60px; border-top: 3px double var(--ink); padding-top: 12px; font-size: 11px; color: var(--ink-soft); letter-spacing: .06em; }
+
+  .reveal { animation: rise .45s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Webz.io News API · demo</div>
+    <h1>Coverage <em>Desk</em></h1>
+    <div class="dateline" id="dateline">Company news monitor — worldwide, English-language press</div>
+  </header>
+
+  <div class="search-row">
+    <form id="form">
+      <input type="text" id="q" placeholder="Monitor a company… e.g. Tesla" autocomplete="off" autofocus>
+      <button class="go" type="submit">Monitor</button>
+    </form>
+    <div class="presets" id="presets"></div>
+  </div>
+
+  <div class="statusline" id="status"></div>
+
+  <div id="board" hidden>
+    <div class="kpis">
+      <div class="kpi"><div class="label">Articles indexed</div><div class="value" id="k-total">–</div><div class="sub">last 30 days, per Webz.io</div></div>
+      <div class="kpi"><div class="label">Sources in sample</div><div class="value" id="k-sources">–</div><div class="sub">distinct outlets</div></div>
+      <div class="kpi"><div class="label">Countries</div><div class="value" id="k-countries">–</div><div class="sub">publisher origin</div></div>
+      <div class="kpi"><div class="label">Net sentiment</div><div class="value" id="k-senti">–</div><div class="sub">positive − negative</div></div>
+    </div>
+
+    <div class="grid">
+      <main>
+        <div class="section-head" id="feed-head">Latest coverage</div>
+        <div id="articles"></div>
+      </main>
+      <aside class="rail">
+        <div class="block">
+          <div class="section-head">Sentiment</div>
+          <div class="senti-bar" id="senti-bar"></div>
+          <div class="legend" id="senti-legend"></div>
+        </div>
+        <div class="block">
+          <div class="section-head">Top sources</div>
+          <ol class="rank" id="sources"></ol>
+        </div>
+        <div class="block">
+          <div class="section-head">By country</div>
+          <ol class="rank" id="countries"></ol>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="empty" id="empty">Type a company name above to open its coverage file.</div>
+
+  <footer>Data: Webz.io News API · responses cached server-side for 5 minutes · token stays on the server</footer>
+</div>
+
+<script>
+const PRESETS = ["Tesla", "Nvidia", "OpenAI", "Airbus"];
+const $ = (id) => document.getElementById(id);
+
+PRESETS.forEach((name) => {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = name;
+  b.addEventListener("click", () => { $("q").value = name; load(name); });
+  $("presets").appendChild(b);
+});
+
+$("form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = $("q").value.trim();
+  if (name) load(name);
+});
+
+function flag(cc) {
+  if (!cc || cc.length !== 2) return "";
+  return String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1a5 + c.charCodeAt(0)));
+}
+
+function timeAgo(iso) {
+  if (!iso) return "";
+  const mins = Math.max(1, Math.round((Date.now() - new Date(iso)) / 60000));
+  if (mins < 60) return mins + "m ago";
+  const hrs = Math.round(mins / 60);
+  if (hrs < 48) return hrs + "h ago";
+  return Math.round(hrs / 24) + "d ago";
+}
+
+async function load(name) {
+  $("status").innerHTML = "Pulling coverage for <b>" + esc(name) + "</b>…";
+  try {
+    const res = await fetch("/api/company?name=" + encodeURIComponent(name));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    render(data);
+  } catch (err) {
+    $("status").innerHTML = '<span class="error">✕ ' + esc(err.message) + "</span>";
+  }
+}
+
+function esc(s) { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+
+function render(d) {
+  $("empty").hidden = true;
+  $("board").hidden = false;
+  $("board").classList.remove("reveal"); void $("board").offsetWidth; $("board").classList.add("reveal");
+
+  $("status").innerHTML = '<span class="dot"></span>' + esc(d.company) + " — fetched " + esc(d.fetched_at) +
+    (d.cached ? " (served from cache)" : "") +
+    (d.api_balance != null ? " · API balance " + d.api_balance : "");
+
+  const s = d.sentiment || {};
+  const pos = s.positive || 0, neg = s.negative || 0, neu = s.neutral || 0, unr = s.unrated || 0;
+  const total = pos + neg + neu + unr || 1;
+
+  $("k-total").textContent = (d.total_results || 0).toLocaleString();
+  $("k-sources").textContent = d.top_sources.length;
+  $("k-countries").textContent = d.countries.length;
+  const net = pos - neg;
+  $("k-senti").textContent = (net > 0 ? "+" : "") + net;
+  $("k-senti").style.color = net > 0 ? "var(--green)" : net < 0 ? "var(--red)" : "inherit";
+
+  $("senti-bar").innerHTML =
+    '<span class="pos" style="width:' + (pos / total * 100) + '%"></span>' +
+    '<span class="neg" style="width:' + (neg / total * 100) + '%"></span>' +
+    '<span class="neu" style="width:' + (neu / total * 100) + '%"></span>' +
+    '<span class="unr" style="width:' + (unr / total * 100) + '%"></span>';
+  $("senti-legend").innerHTML =
+    '<span><i style="background:var(--green)"></i>positive ' + pos + "</span>" +
+    '<span><i style="background:var(--red)"></i>negative ' + neg + "</span>" +
+    '<span><i style="background:var(--amber)"></i>neutral ' + neu + "</span>" +
+    '<span><i style="background:var(--paper-deep)"></i>unrated ' + unr + "</span>";
+
+  $("feed-head").textContent = "Latest coverage — " + d.company;
+  $("articles").innerHTML = d.articles.map((a) => `
+    <article>
+      <div class="meta"><b>${esc(a.site)}</b> ${flag(a.country)} · ${timeAgo(a.published)}${a.sentiment ? '<span class="tag ' + esc(a.sentiment) + '">' + esc(a.sentiment) + "</span>" : ""}</div>
+      <div>
+        <h3><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title)}</a></h3>
+        <p>${esc((a.summary || "").slice(0, 220))}${(a.summary || "").length > 220 ? "…" : ""}</p>
+      </div>
+      ${a.image ? '<img src="' + esc(a.image) + '" alt="" loading="lazy" onerror="this.remove()">' : ""}
+    </article>`).join("") || '<div class="empty">No recent articles found.</div>';
+
+  $("sources").innerHTML = d.top_sources.map(([site, n]) =>
+    '<li><span class="n">' + esc(site) + '</span><span class="c">' + n + "</span></li>").join("");
+  $("countries").innerHTML = d.countries.map(([cc, n]) =>
+    '<li><span class="n">' + flag(cc) + " " + esc(cc) + '</span><span class="c">' + n + "</span></li>").join("");
+}
+
+$("dateline").textContent = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) + " — company news monitor";
+</script>
+</body>
+</html>

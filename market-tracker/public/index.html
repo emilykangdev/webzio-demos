@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GRID/WATCH — renewable energy market tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070b08;
+    --panel: #0d130e;
+    --panel-2: #111a13;
+    --line: #1d2b20;
+    --line-bright: #2c4433;
+    --text: #d8e6da;
+    --dim: #7d9483;
+    --grid-green: #57e389;
+    --amber: #f5b942;
+    --red: #f26d5f;
+    --display: "Chakra Petch", sans-serif;
+    --mono: "IBM Plex Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 44px 44px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+  body::after { /* scanline atmosphere */
+    content: ""; position: fixed; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.14) 0 1px, transparent 1px 3px);
+    mix-blend-mode: multiply;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 80px; }
+
+  /* Header */
+  header {
+    display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;
+    border: 1px solid var(--line-bright); background: var(--panel);
+    padding: 18px 22px; position: relative; overflow: hidden;
+  }
+  header::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+    background: repeating-linear-gradient(45deg, var(--grid-green) 0 8px, transparent 8px 16px);
+  }
+  h1 { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 4.5vw, 40px); letter-spacing: .04em; line-height: 1; }
+  h1 .slash { color: var(--grid-green); }
+  .sub { color: var(--dim); font-size: 12px; margin-top: 6px; letter-spacing: .06em; }
+  .headright { text-align: right; font-size: 11px; color: var(--dim); }
+  .headright b { color: var(--grid-green); font-weight: 600; }
+
+  /* Segment chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
+  .chips button {
+    font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: .08em; text-transform: uppercase;
+    padding: 8px 16px; background: var(--panel); color: var(--dim);
+    border: 1px solid var(--line-bright); cursor: pointer;
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    transition: color .15s, background .15s;
+  }
+  .chips button:hover { color: var(--text); }
+  .chips button.active { background: var(--grid-green); color: #05130a; border-color: var(--grid-green); }
+
+  .statusline { min-height: 22px; font-size: 11.5px; color: var(--dim); margin-bottom: 14px; letter-spacing: .04em; }
+  .statusline .ok { color: var(--grid-green); }
+  .statusline .err { color: var(--red); }
+  .blink { animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* KPI tiles */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 22px; }
+  @media (max-width: 760px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+  .kpi { border: 1px solid var(--line-bright); background: var(--panel); padding: 14px 16px; position: relative; }
+  .kpi::after { content: ""; position: absolute; right: 6px; top: 6px; width: 6px; height: 6px; background: var(--line-bright); }
+  .kpi .label { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
+  .kpi .value { font-family: var(--display); font-weight: 700; font-size: 30px; color: var(--grid-green); margin-top: 4px; }
+  .kpi .sub { font-size: 10.5px; color: var(--dim); }
+
+  /* Layout */
+  .grid { display: grid; grid-template-columns: 1fr 280px; gap: 22px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+  .panel-head {
+    font-family: var(--display); font-weight: 600; font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--dim); border-bottom: 1px solid var(--line-bright); padding-bottom: 8px; margin-bottom: 14px;
+  }
+  .panel-head b { color: var(--text); }
+
+  /* Feed cards */
+  .feed { display: grid; gap: 12px; }
+  .card {
+    display: grid; grid-template-columns: 1fr auto; gap: 6px 16px;
+    border: 1px solid var(--line); background: var(--panel); padding: 14px 16px;
+    transition: border-color .15s, transform .15s;
+  }
+  .card:hover { border-color: var(--grid-green); transform: translateX(3px); }
+  .card .meta { grid-column: 1 / -1; display: flex; gap: 12px; flex-wrap: wrap; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+  .card .meta .site { color: var(--amber); }
+  .card h3 { font-family: var(--display); font-weight: 600; font-size: 16.5px; line-height: 1.25; }
+  .card h3 a { color: var(--text); text-decoration: none; }
+  .card h3 a:hover { color: var(--grid-green); }
+  .card p { font-size: 12px; color: var(--dim); margin-top: 5px; }
+  .card img { width: 96px; height: 68px; object-fit: cover; border: 1px solid var(--line-bright); filter: saturate(.7) contrast(1.05); }
+  .tag { font-size: 9.5px; padding: 1px 7px; border: 1px solid currentColor; letter-spacing: .1em; }
+  .tag.positive { color: var(--grid-green); }
+  .tag.negative { color: var(--red); }
+  .tag.neutral { color: var(--amber); }
+
+  /* Rail */
+  .rail .block { border: 1px solid var(--line); background: var(--panel); padding: 16px; margin-bottom: 16px; }
+  .bar-row { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; padding: 5px 0; font-size: 12px; }
+  .bar-row .bar { height: 8px; background: var(--panel-2); position: relative; }
+  .bar-row .bar i { position: absolute; inset: 0 auto 0 0; background: var(--grid-green); }
+  .bar-row:nth-child(even) .bar i { background: var(--amber); }
+  .bar-row .n { color: var(--dim); }
+
+  .empty { padding: 50px 0; text-align: center; color: var(--dim); }
+  footer { margin-top: 50px; border-top: 1px solid var(--line-bright); padding-top: 12px; font-size: 11px; color: var(--dim); letter-spacing: .05em; }
+
+  .reveal { animation: boot .4s ease both; }
+  @keyframes boot { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>GRID<span class="slash">/</span>WATCH</h1>
+      <div class="sub">renewable energy · market &amp; news tracker · webz.io news api</div>
+    </div>
+    <div class="headright">
+      <div>FEED <b id="h-status">STANDBY</b></div>
+      <div id="h-balance"></div>
+    </div>
+  </header>
+
+  <div class="chips" id="chips"></div>
+  <div class="statusline" id="status"><span class="blink">▙</span> initializing…</div>
+
+  <div id="board" hidden>
+    <div class="kpis">
+      <div class="kpi"><div class="label">Coverage volume</div><div class="value" id="k-total">–</div><div class="sub">articles indexed / 30 days</div></div>
+      <div class="kpi"><div class="label">Sources</div><div class="value" id="k-sources">–</div><div class="sub">distinct outlets in sample</div></div>
+      <div class="kpi"><div class="label">Regions</div><div class="value" id="k-regions">–</div><div class="sub">publisher countries</div></div>
+      <div class="kpi"><div class="label">Freshest item</div><div class="value" id="k-fresh">–</div><div class="sub">age of newest article</div></div>
+    </div>
+
+    <div class="grid">
+      <main>
+        <div class="panel-head">LIVE FEED — <b id="feed-label">…</b></div>
+        <div class="feed" id="feed"></div>
+      </main>
+      <aside class="rail">
+        <div class="block">
+          <div class="panel-head">Geography</div>
+          <div id="countries"></div>
+        </div>
+        <div class="block">
+          <div class="panel-head">Top outlets</div>
+          <div id="sites"></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <footer>GRID/WATCH · data via Webz.io News API · feeds cached server-side 10 min · token never leaves the server</footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let active = "all";
+
+function esc(s) { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+function flag(cc) { return cc && cc.length === 2 ? String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1a5 + c.charCodeAt(0))) : ""; }
+function timeAgo(iso) {
+  if (!iso) return "";
+  const m = Math.max(1, Math.round((Date.now() - new Date(iso)) / 60000));
+  if (m < 60) return m + "m";
+  const h = Math.round(m / 60);
+  return h < 48 ? h + "h" : Math.round(h / 24) + "d";
+}
+
+async function boot() {
+  const segments = await (await fetch("/api/segments")).json();
+  $("chips").innerHTML = "";
+  segments.forEach((s) => {
+    const b = document.createElement("button");
+    b.textContent = s.label;
+    b.dataset.key = s.key;
+    if (s.key === active) b.classList.add("active");
+    b.addEventListener("click", () => load(s.key));
+    $("chips").appendChild(b);
+  });
+  load(active);
+}
+
+async function load(key) {
+  active = key;
+  [...$("chips").children].forEach((b) => b.classList.toggle("active", b.dataset.key === key));
+  $("status").innerHTML = '<span class="blink">▙</span> polling webz.io — segment: ' + esc(key) + "…";
+  $("h-status").textContent = "SYNC";
+  try {
+    const res = await fetch("/api/feed?segment=" + encodeURIComponent(key));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    render(data);
+  } catch (err) {
+    $("h-status").textContent = "FAULT";
+    $("status").innerHTML = '<span class="err">✕ ' + esc(err.message) + "</span>";
+  }
+}
+
+function render(d) {
+  $("board").hidden = false;
+  $("board").classList.remove("reveal"); void $("board").offsetWidth; $("board").classList.add("reveal");
+
+  $("h-status").textContent = "LIVE";
+  $("h-balance").textContent = d.apiBalance != null ? "API BALANCE " + d.apiBalance : "";
+  $("status").innerHTML = '<span class="ok">●</span> ' + esc(d.label) + " — synced " +
+    new Date(d.fetchedAt).toLocaleTimeString() + (d.cached ? " · served from cache (no credits spent)" : " · live pull");
+
+  $("k-total").textContent = (d.totalResults || 0).toLocaleString();
+  $("k-sources").textContent = d.topSites.length;
+  $("k-regions").textContent = d.countries.length;
+  const newest = d.articles.map((a) => a.published).filter(Boolean).sort().pop();
+  $("k-fresh").textContent = newest ? timeAgo(newest) : "–";
+
+  $("feed-label").textContent = d.label.toUpperCase();
+  $("feed").innerHTML = d.articles.map((a) => `
+    <div class="card">
+      <div class="meta">
+        <span class="site">${esc(a.site)}</span>
+        <span>${flag(a.country)} ${esc(a.country || "")}</span>
+        <span>T-${timeAgo(a.published)}</span>
+        ${a.sentiment ? '<span class="tag ' + esc(a.sentiment) + '">' + esc(a.sentiment) + "</span>" : ""}
+      </div>
+      <div>
+        <h3><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title)}</a></h3>
+        <p>${esc((a.summary || "").slice(0, 200))}${(a.summary || "").length > 200 ? "…" : ""}</p>
+      </div>
+      ${a.image ? '<img src="' + esc(a.image) + '" alt="" loading="lazy" onerror="this.remove()">' : ""}
+    </div>`).join("") || '<div class="empty">no articles in this segment right now</div>';
+
+  const bars = (pairs, labeler) => {
+    const max = Math.max(...pairs.map(([, n]) => n), 1);
+    return pairs.map(([k, n]) => `
+      <div class="bar-row">
+        <span>${labeler(k)}</span>
+        <span class="bar"><i style="width:${(n / max) * 100}%"></i></span>
+        <span class="n">${n}</span>
+      </div>`).join("");
+  };
+  $("countries").innerHTML = bars(d.countries, (cc) => flag(cc) + " " + esc(cc));
+  $("sites").innerHTML = bars(d.topSites, (s) => esc(s.length > 9 ? s.slice(0, 9) + "…" : s));
+}
+
+boot();
+</script>
+</body>
+</html>
