@@ -8,6 +8,11 @@ type a company name and get an editorial-style board with
   (`entities.organizations[].sentiment`), falling back to post-level `sentiment`
 - **Top sources & countries** — aggregated from `thread.site` / `thread.country`
 - **Latest articles** — title, summary, image, outlet, recency, per-article sentiment tag
+- **Analyst's Note (LLM)** — one LLM call (`xiaomi/mimo-v2.5` via OpenRouter) over the
+  fetched articles, producing a structured brief: coverage drivers, risks, what to watch
+  next, and a sentiment read. JSON-schema structured outputs (`response_format`) guarantee
+  valid JSON; analyses are cached 15 min per article-set so repeat clicks are free.
+  Grounded in the supplied articles only — the prompt forbids inventing events or numbers.
 
 ## Run it
 

@@ -1,7 +1,7 @@
 {
   "name": "market-tracker",
   "version": "1.0.0",
-  "description": "Renewable-energy market/news tracker on the Webz.io News API — zero-dependency Node server",
+  "description": "Renewable-energy market/news tracker on the Webz.io News API with LLM segment analysis — zero-dependency Node server",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

@@ -6,6 +6,8 @@ in-memory so repeated browsing doesn't burn API credits (every Webz.io
 request has a credit cost — see `cost`/`balance` in the response).
 """
 
+import hashlib
+import json
 import os
 import time
 from collections import Counter
@@ -39,10 +41,117 @@ if not WEBZ_TOKEN:
         "WEBZ_TOKEN is not set. Copy .env.example to .env and paste your Webz.io token."
     )
 
+# LLM analysis is optional at startup — /api/analyze reports clearly if the key
+# is missing rather than blocking the news dashboard itself.
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+ANALYSIS_MODEL = "xiaomi/mimo-v2.5"
+
 app = Flask(__name__)
 
 # query string -> (fetched_at_epoch, payload)
 _cache: dict[str, tuple[float, dict]] = {}
+
+# articles-digest hash -> (created_at_epoch, analysis dict)
+_analysis_cache: dict[str, tuple[float, dict]] = {}
+ANALYSIS_TTL_SECONDS = 900  # 15 min — one LLM call per company per window
+
+ANALYSIS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "brief": {
+            "type": "string",
+            "description": "3-4 sentence analyst brief on the company's current news cycle",
+        },
+        "drivers": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "The 2-4 storylines actually driving coverage right now",
+        },
+        "risks": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "1-3 reputational or business risks visible in this coverage",
+        },
+        "watch_next": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "1-3 concrete things to watch for in upcoming coverage",
+        },
+        "sentiment_take": {
+            "type": "string",
+            "description": "One sentence: how the press is treating the company, beyond raw sentiment counts",
+        },
+    },
+    "required": ["brief", "drivers", "risks", "watch_next", "sentiment_take"],
+    "additionalProperties": False,
+}
+
+
+def analyze_coverage(payload: dict) -> dict:
+    """One LLM call over the already-fetched articles (no extra Webz.io cost)."""
+    digest = [
+        {
+            "title": a["title"],
+            "source": a["site"],
+            "published": a["published"],
+            "sentiment": a["sentiment"],
+            "summary": (a["summary"] or "")[:400],
+        }
+        for a in payload["articles"]
+    ]
+    cache_key = hashlib.sha256(
+        json.dumps([payload["company"], digest], sort_keys=True).encode()
+    ).hexdigest()
+    cached = _analysis_cache.get(cache_key)
+    if cached and time.time() - cached[0] < ANALYSIS_TTL_SECONDS:
+        return {**cached[1], "cached": True}
+
+    response = requests.post(
+        OPENROUTER_ENDPOINT,
+        headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
+        json={
+            "model": ANALYSIS_MODEL,
+            "max_tokens": 4000,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a media analyst writing a terse, concrete brief for an "
+                        "executive monitoring press coverage of their company. Ground every "
+                        "claim in the supplied articles — never invent events, numbers, or "
+                        "outlets. If coverage is thin or off-topic, say so plainly. "
+                        "Field rules: 'brief' is exactly 3-4 plain prose sentences — no "
+                        "markdown, no headers, no line breaks, no lists. Every array item "
+                        "is one short plain-text phrase or sentence about the news "
+                        "itself — never about these instructions or your process. Never "
+                        "use markdown syntax in any field."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Company: {payload['company']}\n"
+                        f"Articles indexed in the last 30 days: {payload['total_results']}\n"
+                        f"Latest articles (deduplicated sample):\n"
+                        f"{json.dumps(digest, indent=1)}"
+                    ),
+                },
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"name": "analysis", "strict": True, "schema": ANALYSIS_SCHEMA},
+            },
+        },
+        timeout=120,
+    )
+    response.raise_for_status()
+    data = response.json()
+    analysis = json.loads(data["choices"][0]["message"]["content"])
+    analysis["model"] = data.get("model", ANALYSIS_MODEL)
+    analysis["generated_at"] = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+    _analysis_cache[cache_key] = (time.time(), analysis)
+    return {**analysis, "cached": False}
 
 
 def fetch_company_news(company: str) -> dict:
@@ -159,6 +268,26 @@ def _aggregate(company: str, data: dict) -> dict:
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/api/analyze")
+def api_analyze():
+    company = (request.args.get("name") or "").replace('"', "").strip()
+    if not company or len(company) > 80:
+        return jsonify({"error": "Pass a company name, e.g. /api/analyze?name=Tesla"}), 400
+    if not OPENROUTER_API_KEY:
+        return jsonify({"error": "OPENROUTER_API_KEY is not configured on the server."}), 503
+    try:
+        payload = fetch_company_news(company)  # cache hit if the dashboard already loaded it
+        if not payload["articles"]:
+            return jsonify({"error": "No articles to analyze for this company."}), 404
+        return jsonify(analyze_coverage(payload))
+    except requests.HTTPError as exc:
+        return jsonify({"error": f"Upstream API error: HTTP {exc.response.status_code}"}), 502
+    except requests.RequestException as exc:
+        return jsonify({"error": f"Upstream API unreachable: {exc}"}), 502
+    except (KeyError, ValueError):
+        return jsonify({"error": "Model returned an unexpected response shape."}), 502
 
 
 @app.route("/api/company")

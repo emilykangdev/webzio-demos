@@ -122,6 +122,29 @@
   .rank li .n { flex: 1; }
   .rank li .c { font-weight: 700; }
 
+  /* Analyst's Note (LLM brief) */
+  .note { border: 1.5px solid var(--ink); background: #fffdf7; margin-top: 26px; padding: 20px 24px; position: relative; }
+  .note::before {
+    content: "AI"; position: absolute; top: -1px; right: -1px; font-size: 10px; font-weight: 700;
+    letter-spacing: .18em; padding: 3px 9px; background: var(--ink); color: var(--paper);
+  }
+  .note-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .note-head h2 { font-family: var(--serif); font-weight: 900; font-size: 22px; }
+  .note-head .byline { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  .note .brief { font-family: var(--serif); font-size: 17px; line-height: 1.55; margin-top: 10px; }
+  .note-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--rule); }
+  @media (max-width: 720px) { .note-cols { grid-template-columns: 1fr; } }
+  .note-cols h4 { font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--red); margin-bottom: 6px; }
+  .note-cols ul { margin: 0; padding-left: 16px; font-size: 13px; }
+  .note-cols li { margin-bottom: 5px; }
+  .note .take { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--rule); font-family: var(--serif); font-style: italic; font-size: 14.5px; color: var(--ink-soft); }
+  .note-actions button {
+    font-family: var(--sans); font-weight: 700; font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    padding: 8px 18px; border: 1.5px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer;
+  }
+  .note-actions button:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+  .note-actions button:disabled { opacity: .5; cursor: wait; }
+
   .empty { padding: 60px 0; text-align: center; font-family: var(--serif); font-style: italic; font-size: 20px; color: var(--ink-soft); }
   .error { color: var(--red); font-weight: 700; }
   footer { margin-top: 60px; border-top: 3px double var(--ink); padding-top: 12px; font-size: 11px; color: var(--ink-soft); letter-spacing: .06em; }
@@ -154,6 +177,14 @@
       <div class="kpi"><div class="label">Sources in sample</div><div class="value" id="k-sources">–</div><div class="sub">distinct outlets</div></div>
       <div class="kpi"><div class="label">Countries</div><div class="value" id="k-countries">–</div><div class="sub">publisher origin</div></div>
       <div class="kpi"><div class="label">Net sentiment</div><div class="value" id="k-senti">–</div><div class="sub">positive − negative</div></div>
+    </div>
+
+    <div class="note" id="note">
+      <div class="note-head">
+        <h2>Analyst’s Note</h2>
+        <div class="note-actions"><button id="analyze-btn" type="button">Draft analyst brief</button></div>
+      </div>
+      <div id="note-body"><p class="take" style="border:none;padding:0;margin-top:8px">One LLM call over the articles below — grounded in the coverage, not the model’s memory.</p></div>
     </div>
 
     <div class="grid">
@@ -232,6 +263,11 @@ function esc(s) { const d = document.createElement("div"); d.textContent = s ?? 
 function render(d) {
   $("empty").hidden = true;
   $("board").hidden = false;
+  if (currentCompany !== d.company) {
+    currentCompany = d.company;
+    $("note-body").innerHTML = '<p class="take" style="border:none;padding:0;margin-top:8px">One LLM call over the articles below — grounded in the coverage, not the model’s memory.</p>';
+    $("analyze-btn").textContent = "Draft analyst brief";
+  }
   $("board").classList.remove("reveal"); void $("board").offsetWidth; $("board").classList.add("reveal");
 
   $("status").innerHTML = '<span class="dot"></span>' + esc(d.company) + " — fetched " + esc(d.fetched_at) +
@@ -278,6 +314,34 @@ function render(d) {
 }
 
 $("dateline").textContent = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) + " — company news monitor";
+
+let currentCompany = null;
+$("analyze-btn").addEventListener("click", async () => {
+  if (!currentCompany) return;
+  const btn = $("analyze-btn");
+  btn.disabled = true; btn.textContent = "Drafting…";
+  try {
+    const res = await fetch("/api/analyze?name=" + encodeURIComponent(currentCompany));
+    const a = await res.json();
+    if (!res.ok) throw new Error(a.error || res.statusText);
+    const list = (items) => "<ul>" + items.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>";
+    $("note-body").innerHTML =
+      '<p class="brief">' + esc(a.brief) + "</p>" +
+      '<div class="note-cols">' +
+        "<div><h4>Coverage drivers</h4>" + list(a.drivers) + "</div>" +
+        "<div><h4>Risks</h4>" + list(a.risks) + "</div>" +
+        "<div><h4>Watch next</h4>" + list(a.watch_next) + "</div>" +
+      "</div>" +
+      '<p class="take">“' + esc(a.sentiment_take) + '” — ' + esc(a.model) +
+      ", " + esc(a.generated_at) + (a.cached ? " (cached)" : "") + "</p>";
+    btn.textContent = "Redraft brief";
+  } catch (err) {
+    $("note-body").innerHTML = '<p class="take error" style="border:none;padding:0">✕ ' + esc(err.message) + "</p>";
+    btn.textContent = "Draft analyst brief";
+  } finally {
+    btn.disabled = false;
+  }
+});
 </script>
 </body>
 </html>

@@ -1,8 +1,10 @@
 # GRID/WATCH — Renewable Energy Market Tracker (Node.js)
 
 Industry news tracker for the renewable-energy market, built on the
-[Webz.io News API](https://webz.io/products/news-api). Zero npm dependencies —
-built-in `http`/`https` only, so `node server.js` is the entire setup.
+[Webz.io News API](https://webz.io/products/news-api), with an LLM-powered
+**Intel Brief** per segment (`xiaomi/mimo-v2.5` via OpenRouter). Zero npm
+dependencies — built-in `http`/`https` + global `fetch` only, so
+`node server.js` is the entire setup.
 
 Segments, each mapped to its own Webz.io boolean query:
 
@@ -27,7 +29,7 @@ articles with sentiment tags, and publisher geography/outlet breakdowns.
 ## Run it
 
 ```bash
-cp .env.example .env      # paste your Webz.io token into .env
+cp .env.example .env      # paste your Webz.io token (+ OpenRouter key) into .env
 node server.js
 # → http://localhost:3000
 ```
@@ -37,6 +39,10 @@ node server.js
 - `GET /` — dashboard UI
 - `GET /api/segments` — segment list
 - `GET /api/feed?segment=solar` — aggregated feed for one segment
+- `GET /api/analyze?segment=solar` — LLM market brief (`xiaomi/mimo-v2.5` via OpenRouter)
+  over that segment's fetched articles: signals, regions in play, watch-next, momentum.
+  JSON-schema structured outputs guarantee valid JSON; briefs cache 15 min per
+  article-set. Grounded in the supplied articles only.
 
 ## Design choices
 
@@ -45,4 +51,5 @@ node server.js
   the response), so each segment is cached in-memory for 10 minutes. Switching back
   and forth between segments in the UI spends nothing; the status line tells you
   whether a view was a live pull or served from cache.
-- **Zero dependencies** — the whole demo is `server.js` + one static HTML file.
+- **Zero dependencies** — the whole demo is `server.js` + one static HTML file; the
+  LLM call uses Node's global `fetch` against OpenRouter's OpenAI-compatible API.

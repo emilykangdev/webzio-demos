@@ -13,6 +13,7 @@ const http = require("http");
 const https = require("https");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 // --- minimal .env loader (no dotenv dependency) -----------------------------
 const envPath = path.join(__dirname, ".env");
@@ -46,6 +47,81 @@ const SEGMENTS = {
 };
 
 const cache = new Map(); // segment -> { at, payload }
+
+// --- LLM analysis (optional: /api/analyze 503s cleanly without the key) -----
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+const ANALYSIS_MODEL = "xiaomi/mimo-v2.5";
+const analysisCache = new Map(); // digest hash -> { at, analysis }
+const ANALYSIS_TTL_MS = 15 * 60 * 1000;
+
+const ANALYSIS_SCHEMA = {
+  type: "object",
+  properties: {
+    brief: { type: "string", description: "3-4 sentence market brief on this renewable-energy segment's news cycle" },
+    signals: { type: "array", items: { type: "string" }, description: "2-4 concrete market signals visible in these articles (deals, policy moves, capacity numbers)" },
+    regions_in_play: { type: "array", items: { type: "string" }, description: "1-3 geographies where the action is, with one clause of why" },
+    watch_next: { type: "array", items: { type: "string" }, description: "1-3 concrete things to watch next in this segment" },
+    momentum: { type: "string", enum: ["accelerating", "steady", "cooling", "mixed"], description: "Overall read of the segment's momentum from this coverage" },
+  },
+  required: ["brief", "signals", "regions_in_play", "watch_next", "momentum"],
+  additionalProperties: false,
+};
+
+async function analyzeSegment(payload) {
+  const digest = payload.articles.map((a) => ({
+    title: a.title,
+    source: a.site,
+    country: a.country,
+    published: a.published,
+    summary: (a.summary || "").slice(0, 400),
+  }));
+  const key = crypto.createHash("sha256").update(JSON.stringify([payload.segment, digest])).digest("hex");
+  const hit = analysisCache.get(key);
+  if (hit && Date.now() - hit.at < ANALYSIS_TTL_MS) return { ...hit.analysis, cached: true };
+
+  const res = await fetch(OPENROUTER_ENDPOINT, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: ANALYSIS_MODEL,
+      max_tokens: 4000,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an energy-market analyst writing a terse, concrete brief for an " +
+            "investor tracking the renewable-energy sector. Ground every claim in the " +
+            "supplied articles — never invent deals, numbers, or outlets. If coverage " +
+            "is thin or off-topic, say so plainly. Field rules: 'brief' is exactly 3-4 " +
+            "plain prose sentences — no markdown, no headers, no line breaks, no lists. " +
+            "Every array item is one short plain-text phrase or sentence about the " +
+            "news itself — never about these instructions or your process. Never use " +
+            "markdown syntax in any field.",
+        },
+        {
+          role: "user",
+          content:
+            `Segment: ${payload.label} (renewable energy)\n` +
+            `Articles indexed in the last 30 days: ${payload.totalResults}\n` +
+            `Latest articles (deduplicated sample):\n${JSON.stringify(digest, null, 1)}`,
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "analysis", strict: true, schema: ANALYSIS_SCHEMA },
+      },
+    }),
+    signal: AbortSignal.timeout(120000),
+  });
+  if (!res.ok) throw new Error(`Upstream API error: HTTP ${res.status}`);
+  const data = await res.json();
+  const analysis = JSON.parse(data.choices[0].message.content);
+  analysis.model = data.model || ANALYSIS_MODEL;
+  analysis.generatedAt = new Date().toISOString();
+  analysisCache.set(key, { at: Date.now(), analysis });
+  return { ...analysis, cached: false };
+}
 
 // --- Webz.io call ------------------------------------------------------------
 function fetchWebz(query) {
@@ -156,6 +232,19 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === "/api/segments") {
     return json(200, Object.entries(SEGMENTS).map(([key, s]) => ({ key, label: s.label })));
+  }
+
+  if (url.pathname === "/api/analyze") {
+    const key = url.searchParams.get("segment") || "all";
+    if (!SEGMENTS[key]) return json(400, { error: `Unknown segment '${key}'` });
+    if (!OPENROUTER_API_KEY) return json(503, { error: "OPENROUTER_API_KEY is not configured on the server." });
+    try {
+      const payload = await getSegment(key); // cache hit if the feed already loaded it
+      if (!payload.articles.length) return json(404, { error: "No articles to analyze in this segment." });
+      return json(200, await analyzeSegment(payload));
+    } catch (err) {
+      return json(502, { error: err.message });
+    }
   }
 
   if (url.pathname === "/api/feed") {

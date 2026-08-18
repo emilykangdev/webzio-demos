@@ -122,6 +122,30 @@
   .bar-row:nth-child(even) .bar i { background: var(--amber); }
   .bar-row .n { color: var(--dim); }
 
+  /* Intel brief (LLM analysis) */
+  .intel { border: 1px solid var(--line-bright); background: var(--panel); padding: 16px 18px; margin-bottom: 22px; position: relative; }
+  .intel::before { content: "AI"; position: absolute; top: -1px; right: -1px; font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: .18em; padding: 2px 8px; background: var(--grid-green); color: #05130a; }
+  .intel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .intel-head .panel-head { border: none; padding: 0; margin: 0; }
+  .intel button {
+    font-family: var(--display); font-weight: 600; font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase;
+    padding: 7px 16px; background: transparent; color: var(--grid-green); border: 1px solid var(--grid-green); cursor: pointer;
+    clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  }
+  .intel button:hover:not(:disabled) { background: var(--grid-green); color: #05130a; }
+  .intel button:disabled { opacity: .5; cursor: wait; }
+  .intel .brief { margin-top: 12px; font-size: 13px; line-height: 1.65; color: var(--text); }
+  .intel-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  @media (max-width: 760px) { .intel-cols { grid-template-columns: 1fr; } }
+  .intel-cols h4 { font-family: var(--display); font-size: 10px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--amber); margin-bottom: 6px; }
+  .intel-cols ul { margin: 0; padding-left: 15px; font-size: 11.5px; color: var(--text); }
+  .intel-cols li { margin-bottom: 5px; }
+  .intel .stamp { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 10.5px; letter-spacing: .06em; color: var(--dim); }
+  .intel .momentum { display: inline-block; border: 1px solid currentColor; padding: 0 8px; margin-right: 10px; letter-spacing: .14em; text-transform: uppercase; }
+  .intel .momentum.accelerating { color: var(--grid-green); }
+  .intel .momentum.cooling { color: var(--red); }
+  .intel .momentum.steady, .intel .momentum.mixed { color: var(--amber); }
+
   .empty { padding: 50px 0; text-align: center; color: var(--dim); }
   footer { margin-top: 50px; border-top: 1px solid var(--line-bright); padding-top: 12px; font-size: 11px; color: var(--dim); letter-spacing: .05em; }
 
@@ -151,6 +175,14 @@
       <div class="kpi"><div class="label">Sources</div><div class="value" id="k-sources">–</div><div class="sub">distinct outlets in sample</div></div>
       <div class="kpi"><div class="label">Regions</div><div class="value" id="k-regions">–</div><div class="sub">publisher countries</div></div>
       <div class="kpi"><div class="label">Freshest item</div><div class="value" id="k-fresh">–</div><div class="sub">age of newest article</div></div>
+    </div>
+
+    <div class="intel" id="intel">
+      <div class="intel-head">
+        <div class="panel-head">INTEL BRIEF — <b id="intel-label">…</b></div>
+        <button id="analyze-btn" type="button">Run analysis</button>
+      </div>
+      <div id="intel-body"><div class="stamp" style="border:none;padding:0">one llm call over the feed below · grounded in the articles, not the model's memory</div></div>
     </div>
 
     <div class="grid">
@@ -234,6 +266,11 @@ function render(d) {
   $("k-fresh").textContent = newest ? timeAgo(newest) : "–";
 
   $("feed-label").textContent = d.label.toUpperCase();
+  if ($("intel-label").textContent !== d.label.toUpperCase()) {
+    $("intel-label").textContent = d.label.toUpperCase();
+    $("intel-body").innerHTML = '<div class="stamp" style="border:none;padding:0">one llm call over the feed below · grounded in the articles, not the model\'s memory</div>';
+    $("analyze-btn").textContent = "Run analysis";
+  }
   $("feed").innerHTML = d.articles.map((a) => `
     <div class="card">
       <div class="meta">
@@ -261,6 +298,32 @@ function render(d) {
   $("countries").innerHTML = bars(d.countries, (cc) => flag(cc) + " " + esc(cc));
   $("sites").innerHTML = bars(d.topSites, (s) => esc(s.length > 9 ? s.slice(0, 9) + "…" : s));
 }
+
+$("analyze-btn").addEventListener("click", async () => {
+  const btn = $("analyze-btn");
+  btn.disabled = true; btn.textContent = "Analyzing…";
+  try {
+    const res = await fetch("/api/analyze?segment=" + encodeURIComponent(active));
+    const a = await res.json();
+    if (!res.ok) throw new Error(a.error || res.statusText);
+    const list = (items) => "<ul>" + items.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>";
+    $("intel-body").innerHTML =
+      '<div class="brief">' + esc(a.brief) + "</div>" +
+      '<div class="intel-cols">' +
+        "<div><h4>Signals</h4>" + list(a.signals) + "</div>" +
+        "<div><h4>Regions in play</h4>" + list(a.regions_in_play) + "</div>" +
+        "<div><h4>Watch next</h4>" + list(a.watch_next) + "</div>" +
+      "</div>" +
+      '<div class="stamp"><span class="momentum ' + esc(a.momentum) + '">' + esc(a.momentum) + "</span>" +
+      esc(a.model) + " · " + new Date(a.generatedAt).toLocaleTimeString() + (a.cached ? " · cached" : "") + "</div>";
+    btn.textContent = "Re-run analysis";
+  } catch (err) {
+    $("intel-body").innerHTML = '<div class="stamp" style="color:var(--red);border:none;padding:0">✕ ' + esc(err.message) + "</div>";
+    btn.textContent = "Run analysis";
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 boot();
 </script>

@@ -5,8 +5,8 @@ showing two different consumption patterns and two different stacks.
 
 | Demo | Stack | What it shows |
 |---|---|---|
-| [`company-news-dashboard/`](company-news-dashboard) | Python 3 + Flask | Company news monitoring: search any company, get sentiment split, top sources, country spread, and the latest coverage |
-| [`market-tracker/`](market-tracker) | Node.js (zero dependencies) | Industry tracker for the renewable-energy market: segmented feeds (solar / wind / storage / hydrogen / policy) with coverage volume and geography |
+| [`company-news-dashboard/`](company-news-dashboard) | Python 3 + Flask + LLM | Company news monitoring: search any company, get sentiment split, top sources, country spread, latest coverage, and an LLM "Analyst's Note" (drivers / risks / watch-next) |
+| [`market-tracker/`](market-tracker) | Node.js (zero deps) + LLM | Industry tracker for the renewable-energy market: segmented feeds (solar / wind / storage / hydrogen / policy) with coverage volume, geography, and an LLM "Intel Brief" per segment |
 
 Both demos:
 
@@ -30,6 +30,11 @@ cd market-tracker
 cp .env.example .env        # paste your Webz.io token
 node server.js              # → http://localhost:3000  (no npm install needed)
 ```
+
+Both `.env` files also take an optional `OPENROUTER_API_KEY` for the LLM analysis panels
+("Analyst's Note" / "Intel Brief") — one LLM call (`xiaomi/mimo-v2.5` via OpenRouter) over
+the already-fetched articles, structured-output JSON, cached 15 min. Without the key,
+everything else still works.
 
 ## Webz.io API notes
 
