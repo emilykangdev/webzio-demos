@@ -3,6 +3,12 @@
 Two small, self-contained demos built on the [Webz.io News API](https://webz.io/products/news-api),
 showing two different consumption patterns and two different stacks.
 
+| Coverage Desk (Python/Flask) | GRID/WATCH (Node.js) |
+|---|---|
+| ![Coverage Desk — company news monitor](screenshots/coverage-desk-hero.png) | ![GRID/WATCH — renewable energy tracker](screenshots/grid-watch-hero.png) |
+
+Full-page captures: [Coverage Desk](screenshots/coverage-desk.png) · [GRID/WATCH](screenshots/grid-watch.png)
+
 | Demo | Stack | What it shows |
 |---|---|---|
 | [`company-news-dashboard/`](company-news-dashboard) | Python 3 + Flask + LLM | Company news monitoring: search any company, get sentiment split, top sources, country spread, latest coverage, and an LLM "Analyst's Note" (drivers / risks / watch-next) |
